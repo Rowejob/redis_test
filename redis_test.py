@@ -94,36 +94,37 @@ def del_key(conn,debug, key):
     return result
 
 def do_work(q):
+    runetime = datetime.datetime.now() + datetime.timedelta(0,int(args.time))
     conn = redis_connect(args.host,args.port,args.debug)
-    stime = time.time()
 
-    print q.get()
+    while datetime.datetime.now() < runetime:
+        stime = time.time()
+        if conn:
+            if args.random:
+                key=randomgen()
+                value=randomgen()
+            if args.debug:
+                print "DEBUG: Randomly generating Key: %s, Value: %s" % (key,value)
 
-    if conn:
-        if args.random:
-            key=randomgen()
-            value=randomgen()
-        if args.debug:
-            print "DEBUG: Randomly generating Key: %s, Value: %s" % (key,value)
-
-        result = put_value(conn, args.debug, key, value)
-        result = get_key(conn, args.debug, key, value)
-        result = del_key(conn, args.debug, key)
+            result = put_value(conn, args.debug, key, value)
+            result = get_key(conn, args.debug, key, value)
+            result = del_key(conn, args.debug, key)
        
-        if result:
-            retcode = "Success"
+            if result:
+                retcode = "Success"
+            else:
+                retcode = "Error"
         else:
-            retcode = "Error"
-    else:
-        retcode = "Error Connecting"
+            retcode = "Error Connecting"
 
-    etime = (time.time() - stime)
-    if args.debug: 
-        print "DEBUG: Thread finished at %s" % (etime)
+    
+        etime = (time.time() - stime)
+        if args.debug: 
+            print "DEBUG: Thread finished at %s" % (etime)
+
+        save_timings(retcode, etime)
 
     q.task_done()
-
-    save_timings(retcode, etime)
 
 def save_timings(retcode,etime):
     if [[ retcode == 'Success' ]]:
@@ -143,13 +144,14 @@ if __name__ == "__main__":
     etime = datetime.datetime.now() + datetime.timedelta(0,int(args.time))
 
     print "INFO: Starting %s Threads for %s Seconds" % (args.threads, args.time)   
- 
-    while datetime.datetime.now() < etime:
+
+    for i in range(args.threads): 
         t = Thread(target=do_work, args=(q,))
         t.start()
         q.put(t)
-        q.join() 
 
+    q.join() 
+        
     print "INFO: Testing done now caculating results"
     
     if len(success) != 0:
